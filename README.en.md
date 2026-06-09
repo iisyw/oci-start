@@ -81,8 +81,8 @@ Two deployment methods are available — pick whichever suits your environment.
 # Create working directory
 mkdir -p oci-start && cd oci-start
 
-# Download installer
-wget -O oci-start.sh https://raw.githubusercontent.com/doubleDimple/shell-tools/master/oci-start.sh
+# Download installer (prefer pinning to your own tag or commit)
+wget -O oci-start.sh https://raw.githubusercontent.com/iisyw/oci-start/master/oci-start.sh
 chmod +x oci-start.sh
 
 # Install
@@ -105,7 +105,7 @@ Common commands:
 ```bash
 mkdir -p oci-start-docker && cd oci-start-docker
 
-wget -O docker.sh https://raw.githubusercontent.com/doubleDimple/shell-tools/master/docker.sh
+wget -O docker.sh https://raw.githubusercontent.com/iisyw/oci-start/master/docker.sh
 chmod +x docker.sh
 
 ./docker.sh install        # Install

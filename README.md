@@ -81,8 +81,8 @@ sudo apt install default-jdk
 # 创建工作目录
 mkdir -p oci-start && cd oci-start
 
-# 下载安装脚本
-wget -O oci-start.sh https://raw.githubusercontent.com/doubleDimple/shell-tools/master/oci-start.sh
+# 下载安装脚本（建议固定到你自己的 tag 或 commit）
+wget -O oci-start.sh https://raw.githubusercontent.com/iisyw/oci-start/master/oci-start.sh
 chmod +x oci-start.sh
 
 # 一键安装
@@ -105,7 +105,7 @@ chmod +x oci-start.sh
 ```bash
 mkdir -p oci-start-docker && cd oci-start-docker
 
-wget -O docker.sh https://raw.githubusercontent.com/doubleDimple/shell-tools/master/docker.sh
+wget -O docker.sh https://raw.githubusercontent.com/iisyw/oci-start/master/docker.sh
 chmod +x docker.sh
 
 ./docker.sh install        # 安装
