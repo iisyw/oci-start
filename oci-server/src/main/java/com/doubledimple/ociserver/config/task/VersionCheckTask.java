@@ -46,7 +46,7 @@ public class VersionCheckTask {
 
     private final AppVersionRepository versionRepository;
 
-    private static final String GITHUB_API_URL = "https://api.github.com/repos/doubleDimple/oci-start/releases/latest";
+    private static final String GITHUB_API_URL = "https://api.github.com/repos/iisyw/oci-start/releases/latest";
     private static final String DOCKER_HUB_API_URL = "https://hub.docker.com/v2/repositories/lovele/oci-start/tags";
 
     @Value("${oci.version:2.0.6}")

@@ -46,6 +46,22 @@ jobs:
 
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
 
+      - name: Sync application version
+        env:
+          RELEASE_TAG: ${{ steps.release_meta.outputs.tag }}
+        run: |
+          VERSION="${RELEASE_TAG#v-}"
+          VERSION="${VERSION#v}"
+
+          if [ -z "$VERSION" ]; then
+            echo "Resolved application version is empty"
+            exit 1
+          fi
+
+          sed -i.bak -E "s/^([[:space:]]*)version:[[:space:]]*.*/\1version: ${VERSION}/" oci-server/src/main/resources/application.yml
+          sed -i.bak -E "s/^([[:space:]]*)ssh-version:[[:space:]]*.*/\1ssh-version: v-${VERSION}/" oci-server/src/main/resources/application.yml
+          rm -f oci-server/src/main/resources/application.yml.bak
+
       - name: Build with Maven
         run: mvn clean package -Dmaven.test.skip=true
 

@@ -81,8 +81,8 @@ sudo apt install default-jdk
 # 创建工作目录
 mkdir -p oci-start && cd oci-start
 
-# 下载安装脚本（建议固定到你自己的 tag 或 commit）
-wget -O oci-start.sh https://raw.githubusercontent.com/iisyw/oci-start/master/oci-start.sh
+# 下载安装脚本
+wget -O oci-start.sh https://raw.githubusercontent.com/iisyw/oci-start/master/scripts/oci-start.sh
 chmod +x oci-start.sh
 
 # 一键安装
@@ -100,12 +100,13 @@ chmod +x oci-start.sh
 ./oci-start.sh uninstall   # 卸载
 ```
 
-### 方式二:Docker 部署
+### 方式二:Docker 部署（沿用原作者镜像源）
+
 
 ```bash
 mkdir -p oci-start-docker && cd oci-start-docker
 
-wget -O docker.sh https://raw.githubusercontent.com/iisyw/oci-start/master/docker.sh
+wget -O docker.sh https://raw.githubusercontent.com/iisyw/oci-start/master/scripts/docker.sh
 chmod +x docker.sh
 
 ./docker.sh install        # 安装
