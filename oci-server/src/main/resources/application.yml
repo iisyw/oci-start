@@ -91,6 +91,7 @@ logging:
   level:
     com.doubledimple.ociserver: INFO
     com.oracle.bmc.core.VirtualNetworkClient: ERROR
+    com.oracle.bmc.limits.LimitsClient: ERROR
     com.oracle.bmc.http.client.jersey.JerseyHttpClientBuilder: WARN
     com.oracle.bmc.core.BlockstorageClient: ERROR
     com.oracle.bmc.core.ComputeClient: ERROR
@@ -129,8 +130,8 @@ thirdApi:
   speedUrl: https://speed.objboy.com/
 
 oci:
-  version: 5.7.81
-  ssh-version: v-5.7.81
+  version: 5.7.85
+  ssh-version: v-5.7.85
 
 ssl:
   staging: false
@@ -140,3 +141,11 @@ springdoc:
     path: /swagger-ui.html
     operations-sorter: method
   packages-to-scan: com.doubledimple.ociserver.third.openApi.controller
+
+sa-token:
+  token-name: satoken
+  timeout: 2592000
+  active-timeout: 7200
+  is-concurrent: false
+  token-style: uuid
+  is-log: false

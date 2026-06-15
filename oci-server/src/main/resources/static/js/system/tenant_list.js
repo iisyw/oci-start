@@ -4229,3 +4229,282 @@ function closeModal(modalId) {
         modal.style.display = 'none';
     }
 }
+
+// ============== 配额分页状态 ==============
+var quotaCurrentPage = 0;
+var quotaPageSize = 20;
+var quotaCurrentData = null;
+var quotaLoading = false;
+
+function showQuotaModal(tenantId) {
+    var modal = document.getElementById('quotaModal');
+    var content = document.getElementById('quotaContent');
+    modal.style.display = 'flex';
+    // Reset content & pagination state
+    quotaCurrentPage = 0;
+    quotaCurrentData = null;
+    quotaLoading = false;
+    content.innerHTML = '<div style="text-align:center;padding:60px 0;color:var(--text-secondary);">'
+        + '<i class="fas fa-chart-bar" style="font-size:36px;display:block;margin-bottom:12px;opacity:0.25;"></i>'
+        + '<div style="font-size:13px;">选择租户和服务类型，点击查询</div></div>';
+    document.getElementById('quotaModalSubtitle').textContent = '选择租户和服务后点击查询';
+
+    // Fetch tenant list (clicked tenant + children if parent)
+    var tenantSel = document.getElementById('quotaTenantSelect');
+    tenantSel.innerHTML = '<option value="">加载中...</option>';
+    if (window.CustomSelect) CustomSelect.refresh(tenantSel);
+
+    var csrfToken = document.querySelector('meta[name="_csrf"]').getAttribute('content');
+    fetch('/tenants/listRegions?parentId=' + tenantId, { headers: { 'X-CSRF-TOKEN': csrfToken } })
+    .then(function(r) { return r.json(); })
+    .then(function(list) {
+        tenantSel.innerHTML = '';
+        if (!list || list.length === 0) {
+            // No children — this IS the leaf tenant, add it directly
+            tenantSel.innerHTML = '<option value="' + tenantId + '">当前租户</option>';
+        } else {
+            list.forEach(function(t) {
+                var label = t.tenancyName || t.userName || t.tenantId || t.id;
+                if (t.region) label += ' (' + t.region + ')';
+                var opt = document.createElement('option');
+                opt.value = t.id;
+                opt.textContent = label;
+                tenantSel.appendChild(opt);
+            });
+        }
+        if (window.CustomSelect) CustomSelect.refresh(tenantSel);
+    })
+    .catch(function() {
+        tenantSel.innerHTML = '<option value="' + tenantId + '">当前租户</option>';
+        if (window.CustomSelect) CustomSelect.refresh(tenantSel);
+    });
+
+    // Reset service select to compute
+    var svcSel = document.getElementById('quotaServiceSelect');
+    svcSel.value = 'compute';
+    if (window.CustomSelect) CustomSelect.refresh(svcSel);
+}
+
+function doQuotaQuery(page) {
+    if (quotaLoading) return;
+    if (page === undefined || page === null) page = 0;
+
+    var tenantSel  = document.getElementById('quotaTenantSelect');
+    var svcSel     = document.getElementById('quotaServiceSelect');
+    var tenantId   = tenantSel.value;
+    var svc        = svcSel.value || 'compute';
+    var svcLabels  = {
+        'compute':'计算 (Compute)', 'block-storage':'块存储 (Block Storage)', 'object-storage':'对象存储 (Object Storage)',
+        'mysql':'MySQL HeatWave', 'database':'Oracle Database (DBCS)', 'autonomous-database':'自治数据库 (ADB)', 'nosql':'NoSQL Database'
+    };
+
+    if (!tenantId) {
+        alert('请先选择租户');
+        return;
+    }
+
+    quotaLoading = true;
+    var content = document.getElementById('quotaContent');
+    var btn     = document.getElementById('quotaQueryBtn');
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 查询中...';
+
+    content.innerHTML = '<div style="text-align:center;padding:60px 0;color:var(--text-secondary);">'
+        + '<i class="fas fa-spinner fa-spin" style="font-size:28px;display:block;margin-bottom:12px;"></i>'
+        + '<div style="font-size:13px;">正在查询 ' + (svcLabels[svc]||svc) + ' 配额（第 ' + (page+1) + ' 页）...</div></div>';
+
+    var csrfToken = document.querySelector('meta[name="_csrf"]').getAttribute('content');
+    fetch('/tenants/quota?tenantId=' + tenantId + '&serviceName=' + encodeURIComponent(svc)
+          + '&page=' + page + '&pageSize=' + quotaPageSize, {
+        headers: { 'X-CSRF-TOKEN': csrfToken }
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+        quotaLoading = false;
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-search"></i> 查询';
+        if (data.error) {
+            content.innerHTML = '<div style="color:var(--accent-red);padding:40px;text-align:center;">'
+                + '<i class="fas fa-exclamation-circle" style="font-size:28px;display:block;margin-bottom:10px;"></i>'
+                + data.error + '</div>';
+            return;
+        }
+        quotaCurrentData = data;
+        quotaCurrentPage = data.page !== undefined ? Number(data.page) : 0;
+        var hasNextPage = !!data.hasNextPage;
+        var itemCount = (data.items || []).length;
+        document.getElementById('quotaModalSubtitle').textContent
+            = (data.region || '') + ' · ' + (svcLabels[svc]||svc)
+            + ' · 第 ' + (quotaCurrentPage + 1) + ' 页，共 ' + itemCount + ' 条';
+        content.innerHTML = renderQuotaContent(data.items || [])
+            + renderQuotaPagination(quotaCurrentPage, hasNextPage);
+    })
+    .catch(function() {
+        quotaLoading = false;
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-search"></i> 查询';
+        content.innerHTML = '<div style="color:var(--accent-red);padding:40px;text-align:center;">获取配额失败，请稍后重试</div>';
+    });
+}
+
+function renderQuotaPagination(page, hasNextPage) {
+    if (page <= 0 && !hasNextPage) return '';
+    var pageSizes = [10, 20, 50];
+    var sizeOpts = pageSizes.map(function(n) {
+        return '<option value="' + n + '"' + (n === quotaPageSize ? ' selected' : '') + '>' + n + '</option>';
+    }).join('');
+    var baseBtn = 'padding:6px 14px;border:1px solid var(--card-border);border-radius:6px;background:var(--surface);color:var(--text-primary);font-size:12px;';
+    var activeBtn = baseBtn + 'cursor:pointer;';
+    var disabledBtn = baseBtn + 'opacity:0.4;cursor:not-allowed;';
+    return '<div style="display:flex;align-items:center;justify-content:space-between;padding:12px 4px;margin-top:10px;flex-wrap:wrap;gap:8px;">'
+        + '<button onclick="doQuotaQuery(' + (page - 1) + ')" '
+        + (page <= 0 ? 'disabled style="' + disabledBtn + '"' : 'style="' + activeBtn + '"')
+        + '><i class="fas fa-chevron-left"></i> 上一页</button>'
+        + '<div style="display:flex;align-items:center;gap:10px;font-size:12px;color:var(--text-secondary);">'
+        + '<span>第 <strong>' + (page + 1) + '</strong> 页</span>'
+        + '<span style="color:var(--card-border);">|</span>'
+        + '<span>每页 <select onchange="quotaChangePageSize(this.value)" style="padding:3px 6px;border:1px solid var(--card-border);border-radius:4px;background:var(--surface);color:var(--text-primary);font-size:12px;">' + sizeOpts + '</select> 条</span>'
+        + '</div>'
+        + '<button onclick="doQuotaQuery(' + (page + 1) + ')" '
+        + (!hasNextPage ? 'disabled style="' + disabledBtn + '"' : 'style="' + activeBtn + '"')
+        + '>下一页 <i class="fas fa-chevron-right"></i></button>'
+        + '</div>';
+}
+
+function quotaChangePageSize(newSize) {
+    quotaPageSize = parseInt(newSize) || 20;
+    doQuotaQuery(0);
+}
+
+// 根据 OCI compute limit name 的命名规律推断实例类型
+// 命名规则：standard-a1/a2=Ampere, e2=AMD旧款, e3/e4/e5=AMD, x9=Intel新款,
+//          standard2/standard3/optimized3=Intel旧款, gpu=GPU, hpc=HPC, bm-=裸金属前缀
+function quotaInstanceType(limitName) {
+    if (!limitName) return null;
+    var n = limitName.toLowerCase();
+    var bm = n.indexOf('bm-') === 0 || n.indexOf('-bm-') !== -1;
+
+    var arch = null;
+    if (n.indexOf('-a1-') !== -1 || n.indexOf('-a2-') !== -1)          arch = 'Ampere';
+    else if (n.indexOf('-e5-') !== -1)                                   arch = 'AMD E5';
+    else if (n.indexOf('-e4-') !== -1)                                   arch = 'AMD E4';
+    else if (n.indexOf('-e3-') !== -1)                                   arch = 'AMD E3';
+    else if (n.indexOf('-e2-') !== -1 || n.indexOf('e2-1-micro') !== -1) arch = 'AMD E2';
+    else if (n.indexOf('gpu') !== -1)                                    arch = 'GPU';
+    else if (n.indexOf('hpc') !== -1)                                    arch = 'HPC';
+    else if (n.indexOf('optimized3') !== -1)                             arch = 'Intel 高频';
+    else if (n.indexOf('-x9-') !== -1 || n.indexOf('x9-') !== -1)       arch = 'Intel X9';
+    else if (n.indexOf('-x8-') !== -1)                                   arch = 'Intel X8';
+    else if (n.indexOf('-x7-') !== -1)                                   arch = 'Intel X7';
+    else if (n.indexOf('standard3') !== -1)                              arch = 'Intel';
+    else if (n.indexOf('standard2') !== -1)                              arch = 'Intel 旧款';
+    else if (n.indexOf('dense-a4-ax') !== -1)                            arch = 'DenseIO A4 AX';
+    else if (n.indexOf('dense-io') !== -1 || n.indexOf('denseio') !== -1) arch = 'DenseIO';
+    // 数据库类型
+    else if (n.indexOf('autonomous-') !== -1 || n.indexOf('-adb-') !== -1 || n.indexOf('adb-') === 0) arch = 'ADB';
+    else if (n.indexOf('mysql') !== -1)                                  arch = 'MySQL';
+    else if (n.indexOf('nosql') !== -1)                                  arch = 'NoSQL';
+    else if (n.indexOf('exadata') !== -1)                                arch = 'Exadata';
+    else if (n.indexOf('db-system') !== -1 || n.indexOf('db-vcpu') !== -1 || n.indexOf('db-node') !== -1) arch = 'DBCS';
+
+    if (!arch) return bm ? '裸金属' : null;
+    return bm ? '裸金属·' + arch : arch;
+}
+
+// 每种类型对应的徽章颜色
+function quotaTypeBadge(typeName) {
+    if (!typeName) return '';
+    var colors = {
+        'Ampere':      {bg:'#f0fdf4', fg:'#15803d', bd:'#bbf7d0'},
+        'AMD E5':      {bg:'#eff6ff', fg:'#1d4ed8', bd:'#bfdbfe'},
+        'AMD E4':      {bg:'#eff6ff', fg:'#1d4ed8', bd:'#bfdbfe'},
+        'AMD E3':      {bg:'#eff6ff', fg:'#1d4ed8', bd:'#bfdbfe'},
+        'AMD E2':      {bg:'#f8fafc', fg:'#64748b', bd:'#e2e8f0'},
+        'Intel X9':    {bg:'#fdf4ff', fg:'#7e22ce', bd:'#e9d5ff'},
+        'Intel X8':    {bg:'#fdf4ff', fg:'#7e22ce', bd:'#e9d5ff'},
+        'Intel X7':    {bg:'#fdf4ff', fg:'#7e22ce', bd:'#e9d5ff'},
+        'Intel':       {bg:'#fdf4ff', fg:'#7e22ce', bd:'#e9d5ff'},
+        'Intel 高频':  {bg:'#fdf4ff', fg:'#7e22ce', bd:'#e9d5ff'},
+        'Intel 旧款':  {bg:'#f8fafc', fg:'#64748b', bd:'#e2e8f0'},
+        'GPU':         {bg:'#fff7ed', fg:'#c2410c', bd:'#fed7aa'},
+        'HPC':         {bg:'#fff7ed', fg:'#c2410c', bd:'#fed7aa'},
+        'DenseIO A4 AX': {bg:'#fff7ed', fg:'#c2410c', bd:'#fed7aa'},
+        'DenseIO':     {bg:'#fff7ed', fg:'#c2410c', bd:'#fed7aa'},
+        'MySQL':       {bg:'#f0f9ff', fg:'#0369a1', bd:'#bae6fd'},
+        'ADB':         {bg:'#fef3c7', fg:'#92400e', bd:'#fde68a'},
+        'DBCS':        {bg:'#fef3c7', fg:'#92400e', bd:'#fde68a'},
+        'Exadata':     {bg:'#fef3c7', fg:'#92400e', bd:'#fde68a'},
+        'NoSQL':       {bg:'#f5f3ff', fg:'#6d28d9', bd:'#ddd6fe'},
+    };
+    // 裸金属前缀
+    var key = typeName;
+    if (typeName.indexOf('裸金属·') === 0) key = typeName.substring(3);
+    var c = colors[key] || {bg:'#f8fafc', fg:'#64748b', bd:'#e2e8f0'};
+    var label = typeName.indexOf('裸金属·') === 0 ? 'BM·' + typeName.substring(4) : typeName;
+    return '<span style="display:inline-block;padding:1px 6px;border-radius:4px;font-size:10px;font-weight:600;'
+        + 'background:' + c.bg + ';color:' + c.fg + ';border:1px solid ' + c.bd + ';white-space:nowrap;">'
+        + label + '</span>';
+}
+
+function renderQuotaContent(items) {
+    if (items.length === 0) {
+        return '<div style="padding:40px;text-align:center;color:var(--text-secondary);">'
+            + '<i class="fas fa-inbox" style="font-size:32px;display:block;margin-bottom:10px;opacity:0.35;"></i>'
+            + '<div style="font-size:13px;">该服务暂无配额数据</div></div>';
+    }
+
+    // 仅当本页有 compute 类型数据时才显示类型列
+    var hasType = items.some(function(it) { return !!quotaInstanceType(it.name); });
+
+    function bar(pct) {
+        var c = pct >= 90 ? '#dc2626' : pct >= 60 ? '#d97706' : '#16a34a';
+        return '<div style="height:6px;border-radius:3px;background:var(--hover-bg);border:1px solid var(--card-border);overflow:hidden;">'
+            + '<div style="height:100%;width:' + pct + '%;background:' + c + ';border-radius:3px;transition:width 0.4s;"></div></div>';
+    }
+
+    function dot(pct) {
+        var c = pct >= 90 ? '#dc2626' : pct >= 60 ? '#d97706' : '#16a34a';
+        return '<span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:' + c + ';margin-right:6px;flex-shrink:0;vertical-align:middle;"></span>';
+    }
+
+    var rows = items.map(function(it) {
+        var total = it.total || 0, used = it.used || 0, avail = it.available || 0;
+        var pct   = total > 0 ? Math.min(100, Math.round(used / total * 100)) : 0;
+        var ac    = avail <= 0 ? '#dc2626' : avail < total * 0.2 ? '#d97706' : '#16a34a';
+        var pc    = pct >= 90 ? '#dc2626' : pct >= 60 ? '#d97706' : 'var(--text-secondary)';
+        var typeCell = hasType
+            ? '<td style="padding:9px 10px;text-align:center;white-space:nowrap;">'
+              + (quotaTypeBadge(quotaInstanceType(it.name)) || '<span style="color:var(--text-secondary);font-size:11px;">—</span>')
+              + '</td>'
+            : '';
+        return '<tr style="border-bottom:1px solid var(--card-border);transition:background 0.1s;"'
+            + ' onmouseover="this.style.background=\'var(--hover-bg)\'" onmouseout="this.style.background=\'transparent\'">'
+            + '<td style="padding:9px 16px;font-size:11px;color:var(--text-primary);word-break:break-all;">'
+            + dot(pct) + it.name + '</td>'
+            + typeCell
+            + '<td style="padding:9px 12px;font-size:12px;text-align:center;color:var(--text-secondary);">' + total + '</td>'
+            + '<td style="padding:9px 12px;font-size:12px;text-align:center;color:var(--text-secondary);">' + used + '</td>'
+            + '<td style="padding:9px 12px;font-size:12px;text-align:center;font-weight:700;color:' + ac + ';">' + avail + '</td>'
+            + '<td style="padding:9px 16px;min-width:120px;">' + bar(pct) + '</td>'
+            + '<td style="padding:9px 12px;font-size:12px;text-align:center;font-weight:600;color:' + pc + ';white-space:nowrap;">' + pct + '%</td>'
+            + '</tr>';
+    }).join('');
+
+    var typeHeader = hasType
+        ? '<th style="padding:9px 10px;font-size:10px;font-weight:700;color:var(--text-secondary);text-align:center;width:90px;letter-spacing:.6px;text-transform:uppercase;">实例类型</th>'
+        : '';
+
+    return '<div style="border:1px solid var(--card-border);border-radius:10px;overflow:hidden;">'
+        + '<table style="width:100%;border-collapse:collapse;">'
+        + '<thead><tr style="background:var(--surface-2,var(--hover-bg));border-bottom:1px solid var(--card-border);">'
+        + '<th style="padding:9px 16px;font-size:10px;font-weight:700;color:var(--text-secondary);text-align:left;letter-spacing:.6px;text-transform:uppercase;">限额名称</th>'
+        + typeHeader
+        + '<th style="padding:9px 12px;font-size:10px;font-weight:700;color:var(--text-secondary);text-align:center;width:64px;letter-spacing:.6px;text-transform:uppercase;">总量</th>'
+        + '<th style="padding:9px 12px;font-size:10px;font-weight:700;color:var(--text-secondary);text-align:center;width:64px;letter-spacing:.6px;text-transform:uppercase;">已用</th>'
+        + '<th style="padding:9px 12px;font-size:10px;font-weight:700;color:var(--text-secondary);text-align:center;width:64px;letter-spacing:.6px;text-transform:uppercase;">可用</th>'
+        + '<th style="padding:9px 16px;font-size:10px;font-weight:700;color:var(--text-secondary);width:130px;letter-spacing:.6px;text-transform:uppercase;">进度条</th>'
+        + '<th style="padding:9px 12px;font-size:10px;font-weight:700;color:var(--text-secondary);text-align:center;width:60px;letter-spacing:.6px;text-transform:uppercase;">占比</th>'
+        + '</tr></thead>'
+        + '<tbody>' + rows + '</tbody>'
+        + '</table></div>';
+}

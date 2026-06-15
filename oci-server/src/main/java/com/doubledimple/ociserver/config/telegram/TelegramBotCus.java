@@ -19,6 +19,7 @@ import com.doubledimple.ociserver.service.BanService;
 import com.doubledimple.ociserver.service.TenantService;
 import com.doubledimple.ociserver.service.impl.system.SystemConfigService;
 import com.doubledimple.ociserver.service.oracle.OracleInstanceService;
+import com.doubledimple.ociserver.utils.oracle.OciLimitsUtils;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.InitializingBean;
@@ -43,6 +44,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 
 import static com.doubledimple.ocicommon.tg.TgUtils.getMaskedDisplayName;
 import static com.doubledimple.ocicommon.utils.DateTimeUtils.daysBetweenCurrent;
@@ -72,6 +74,8 @@ public class TelegramBotCus extends TelegramLongPollingBot implements Initializi
 
     private static final int PAGE_SIZE_TENANT = 10;
     private static final int PAGE_SIZE_BOOT_LOG = 5;
+    private static final int QUOTA_TG_PAGE_SIZE = 5;
+
 
     private static final DateTimeFormatter TIME_FMT = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
     private static final DateTimeFormatter DATE_FMT = DateTimeFormatter.ofPattern("yyyy-MM-dd");
@@ -464,6 +468,36 @@ public class TelegramBotCus extends TelegramLongPollingBot implements Initializi
                         showTrafficRegionMenu(chatId, messageId, parentId);
                     }
 
+                    // 配额相关回调
+                    else if (callbackData.startsWith("quota_region_")) {
+                        Long regionId = Long.valueOf(callbackData.substring("quota_region_".length()));
+                        showQuotaServiceMenu(chatId, messageId, regionId);
+                    }
+                    else if (callbackData.startsWith("quota_svc_")) {
+                        String payload = callbackData.substring("quota_svc_".length());
+                        int sep = payload.indexOf('_');
+                        Long tenantId = Long.valueOf(payload.substring(0, sep));
+                        String svc = payload.substring(sep + 1);
+                        queryAndShowQuota(chatId, messageId, tenantId, svc, false);
+                    }
+                    else if (callbackData.startsWith("quota_refresh_")) {
+                        String payload = callbackData.substring("quota_refresh_".length());
+                        int sep = payload.indexOf('_');
+                        Long tenantId = Long.valueOf(payload.substring(0, sep));
+                        String svc = payload.substring(sep + 1);
+                        queryAndShowQuota(chatId, messageId, tenantId, svc, true);
+                    }
+                    else if (callbackData.startsWith("quota_page_")) {
+                        String payload = callbackData.substring("quota_page_".length());
+                        int lastSep = payload.lastIndexOf('_');
+                        int page = Integer.parseInt(payload.substring(lastSep + 1));
+                        String rest = payload.substring(0, lastSep);
+                        int firstSep = rest.indexOf('_');
+                        Long tenantId = Long.valueOf(rest.substring(0, firstSep));
+                        String svc = rest.substring(firstSep + 1);
+                        showQuotaPage(chatId, messageId, tenantId, svc, page);
+                    }
+
                     /*else {
                         sendTextMessage(chatId, "未知操作: " + callbackData);
                     }*/
@@ -797,13 +831,14 @@ public class TelegramBotCus extends TelegramLongPollingBot implements Initializi
                 }
             }
 
-            // 2. 构建底部操作行：返回 + 更新实例
+            // 2. 构建底部操作行：查询配额 + 更新实例 + 返回
             Long parenId = region.getParenId();
             if (parenId == 0L) parenId = region.getId();
             keyboard.add(row(
-                    button("返回", "tenant_detail_" + parenId),
+                    button("查询配额", "quota_region_" + region.getId()),
                     button("更新实例", "update_instances_" + region.getId())
             ));
+            keyboard.add(Collections.singletonList(button("返回", "tenant_detail_" + parenId)));
             keyboard.add(Collections.singletonList(button(BTN_BACK_MAIN, "back_to_main")));
 
             markup.setKeyboard(keyboard);
@@ -1110,6 +1145,215 @@ public class TelegramBotCus extends TelegramLongPollingBot implements Initializi
 
     private String formatGB(double gb) {
         return String.format("%.2f", gb);
+    }
+
+    // ============== 配额查询功能 ==============
+
+    private void showQuotaServiceMenu(Long chatId, Integer messageId, Long regionId) {
+        try {
+            Tenant region = getTenantService().getById(regionId);
+            if (region == null) {
+                sendOrEdit(chatId, messageId, "未找到该区域信息", onlyBackToMainMarkup());
+                return;
+            }
+            String regionName = region.getRegion() != null ? region.getRegion() : "未知区域";
+
+            InlineKeyboardMarkup markup = new InlineKeyboardMarkup();
+            List<List<InlineKeyboardButton>> keyboard = new ArrayList<>();
+            keyboard.add(row(
+                    button("计算", "quota_svc_" + regionId + "_compute"),
+                    button("块存储", "quota_svc_" + regionId + "_block-storage"),
+                    button("对象存储", "quota_svc_" + regionId + "_object-storage")
+            ));
+            keyboard.add(row(
+                    button("MySQL", "quota_svc_" + regionId + "_mysql"),
+                    button("Oracle DB", "quota_svc_" + regionId + "_database"),
+                    button("ADB", "quota_svc_" + regionId + "_autonomous-database")
+            ));
+            keyboard.add(row(
+                    button("NoSQL", "quota_svc_" + regionId + "_nosql"),
+                    button("返回区域", "region_info_" + regionId),
+                    button(BTN_BACK_MAIN, "back_to_main")
+            ));
+            markup.setKeyboard(keyboard);
+
+            String text = "<b>配额查询 - " + escape(regionName) + "</b>\n" + DIVIDER + "\n\n请选择服务类型：";
+            sendOrEdit(chatId, messageId, text, markup);
+        } catch (Exception e) {
+            log.error("加载配额服务菜单失败: {}", e.getMessage(), e);
+            sendOrEdit(chatId, messageId, "加载失败：" + safe(e.getMessage()), onlyBackToMainMarkup());
+        }
+    }
+
+    private void queryAndShowQuota(Long chatId, Integer messageId, Long tenantId, String serviceName, boolean isRefresh) {
+        fetchAndShowQuotaPage(chatId, messageId, tenantId, serviceName, 0, isRefresh);
+    }
+
+    private void showQuotaPage(Long chatId, Integer messageId, Long tenantId, String serviceName, int page) {
+        fetchAndShowQuotaPage(chatId, messageId, tenantId, serviceName, page, false);
+    }
+
+    /**
+     * 通用分页查询配额并展示：服务端分页，每次只对当页条目调用 getResourceAvailability，
+     * 避免 compute 等服务一次性拉取大量数据导致超时。
+     */
+    private void fetchAndShowQuotaPage(Long chatId, Integer messageId, Long tenantId,
+                                       String serviceName, int page, boolean isRefresh) {
+        Tenant tenant;
+        try {
+            tenant = getTenantService().getById(tenantId);
+        } catch (Exception e) {
+            sendOrEdit(chatId, messageId, "获取区域信息失败：" + safe(e.getMessage()), onlyBackToMainMarkup());
+            return;
+        }
+        if (tenant == null) {
+            sendOrEdit(chatId, messageId, "未找到该区域信息", onlyBackToMainMarkup());
+            return;
+        }
+
+        String regionName = tenant.getRegion() != null ? tenant.getRegion() : "未知区域";
+        String svcLabel = quotaServiceLabel(serviceName);
+        String loadingText = "<b>配额查询 - " + escape(regionName) + "</b>\n" + DIVIDER + "\n\n" +
+                "服务：" + svcLabel + "\n" +
+                (isRefresh ? "正在重新查询..." : page == 0 ? "正在查询配额，请稍候..." : "正在加载第 " + (page + 1) + " 页...");
+        sendOrEdit(chatId, messageId, loadingText, null);
+
+        final Tenant finalTenant = tenant;
+        new Thread(() -> {
+            Map<String, Object> pagedResult;
+            try {
+                pagedResult = OciLimitsUtils.getSingleServiceQuotasPaged(finalTenant, serviceName, page, QUOTA_TG_PAGE_SIZE);
+            } catch (Exception e) {
+                log.error("查询配额失败 tenantId={} service={}: {}", tenantId, serviceName, e.getMessage(), e);
+                sendOrEdit(chatId, messageId,
+                        "<b>查询失败</b>\n" + DIVIDER + "\n\n" + safe(e.getMessage()),
+                        quotaResultMarkup(tenantId, serviceName, 0, false));
+                return;
+            }
+            @SuppressWarnings("unchecked")
+            List<Map<String, Object>> items = (List<Map<String, Object>>) pagedResult.get("items");
+            int curPage = ((Number) pagedResult.get("page")).intValue();
+            boolean hasNextPage = Boolean.TRUE.equals(pagedResult.get("hasNextPage"));
+
+            String text = renderQuotaResult(items, regionName, svcLabel, curPage, hasNextPage);
+            sendOrEdit(chatId, messageId, text, quotaResultMarkup(tenantId, serviceName, curPage, hasNextPage));
+        }, "tg-quota-" + tenantId).start();
+    }
+
+    private String renderQuotaResult(List<Map<String, Object>> items, String regionName, String svcLabel,
+                                     int page, boolean hasNextPage) {
+        StringBuilder sb = new StringBuilder();
+        sb.append("<b>配额查询结果</b>\n").append(DIVIDER).append("\n");
+        sb.append("区域：").append(escape(regionName)).append("\n");
+        sb.append("服务：").append(svcLabel);
+        if (page > 0 || hasNextPage) {
+            sb.append("  <i>第 ").append(page + 1).append(" 页</i>");
+        }
+        sb.append("\n\n");
+
+        if (items == null || items.isEmpty()) {
+            sb.append("暂无配额数据。\n");
+        } else {
+            for (Map<String, Object> item : items) {
+                String name = String.valueOf(item.getOrDefault("name", ""));
+                long total = toLong(item.get("total"));
+                long used = toLong(item.get("used"));
+                long available = toLong(item.get("available"));
+                String pct = total > 0
+                        ? String.format("%.0f%%", (double) used / total * 100)
+                        : "—";
+                String typeLabel = quotaInstanceTypeLabel(name);
+                sb.append("<code>").append(escape(name)).append("</code>");
+                if (typeLabel != null) sb.append("  <i>").append(typeLabel).append("</i>");
+                sb.append("\n");
+                sb.append("  总量: ").append(total)
+                        .append(" | 已用: ").append(used)
+                        .append(" | 可用: ").append(available)
+                        .append(" | 占比: ").append(pct)
+                        .append("\n");
+            }
+        }
+
+        sb.append("\n<i>更新时间：").append(LocalDateTime.now().format(TIME_FMT)).append("</i>");
+        return sb.toString();
+    }
+
+    private long toLong(Object obj) {
+        if (obj == null) return 0L;
+        if (obj instanceof Number) return ((Number) obj).longValue();
+        try { return Long.parseLong(String.valueOf(obj)); } catch (Exception e) { return 0L; }
+    }
+
+    private String quotaServiceLabel(String serviceName) {
+        switch (serviceName) {
+            case "compute":            return "计算 (Compute)";
+            case "block-storage":      return "块存储 (Block Storage)";
+            case "object-storage":     return "对象存储 (Object Storage)";
+            case "mysql":              return "MySQL HeatWave";
+            case "database":           return "Oracle Database (DBCS)";
+            case "autonomous-database":return "自治数据库 (ADB)";
+            case "nosql":              return "NoSQL Database";
+            default:                   return escape(serviceName);
+        }
+    }
+
+    /**
+     * 根据 OCI compute limit name 命名规律推断实例类型标签，非 compute 限额返回 null。
+     * 命名规则：standard-a1/a2=Ampere, e2=AMD旧款, e3~e5=AMD新款,
+     *          x9=Intel新款, standard2/3/optimized3=Intel旧款,
+     *          bm-前缀=裸金属, gpu=GPU, hpc=HPC
+     */
+    private String quotaInstanceTypeLabel(String name) {
+        if (name == null) return null;
+        String n = name.toLowerCase();
+        boolean bm = n.startsWith("bm-");
+        String arch = null;
+        if      (n.contains("-a1-") || n.contains("-a2-"))          arch = "Ampere";
+        else if (n.contains("-e5-"))                                 arch = "AMD E5";
+        else if (n.contains("-e4-"))                                 arch = "AMD E4";
+        else if (n.contains("-e3-"))                                 arch = "AMD E3";
+        else if (n.contains("-e2-") || n.contains("e2-1-micro"))    arch = "AMD E2";
+        else if (n.contains("gpu"))                                  arch = "GPU";
+        else if (n.contains("hpc"))                                  arch = "HPC";
+        else if (n.contains("optimized3"))                           arch = "Intel 高频";
+        else if (n.contains("-x9-") || n.contains("x9-"))           arch = "Intel X9";
+        else if (n.contains("-x8-"))                                 arch = "Intel X8";
+        else if (n.contains("-x7-"))                                 arch = "Intel X7";
+        else if (n.contains("standard3"))                            arch = "Intel";
+        else if (n.contains("standard2"))                            arch = "Intel 旧款";
+        else if (n.contains("dense-a4-ax"))                          arch = "DenseIO A4 AX";
+        else if (n.contains("dense-io") || n.contains("denseio"))   arch = "DenseIO";
+        else if (n.contains("autonomous-") || n.contains("-adb-") || n.startsWith("adb-")) arch = "ADB";
+        else if (n.contains("mysql"))                                arch = "MySQL";
+        else if (n.contains("nosql"))                                arch = "NoSQL";
+        else if (n.contains("exadata"))                              arch = "Exadata";
+        else if (n.contains("db-system") || n.contains("db-vcpu") || n.contains("db-node")) arch = "DBCS";
+        if (arch == null) return bm ? "裸金属" : null;
+        return bm ? "裸金属·" + arch : arch;
+    }
+
+    private InlineKeyboardMarkup quotaResultMarkup(Long regionId, String serviceName, int page, boolean hasNextPage) {
+        InlineKeyboardMarkup markup = new InlineKeyboardMarkup();
+        List<List<InlineKeyboardButton>> kb = new ArrayList<>();
+        kb.add(row(
+                button(BTN_REFRESH, "quota_refresh_" + regionId + "_" + serviceName),
+                button("返回区域", "region_info_" + regionId)
+        ));
+        if (page > 0 || hasNextPage) {
+            List<InlineKeyboardButton> pageRow = new ArrayList<>();
+            if (page > 0) {
+                pageRow.add(button(BTN_LAST_PAGE, "quota_page_" + regionId + "_" + serviceName + "_" + (page - 1)));
+            }
+            if (hasNextPage) {
+                pageRow.add(button(BTN_NEXT_PAGE, "quota_page_" + regionId + "_" + serviceName + "_" + (page + 1)));
+            }
+            if (!pageRow.isEmpty()) {
+                kb.add(pageRow);
+            }
+        }
+        kb.add(Collections.singletonList(button(BTN_BACK_MAIN, "back_to_main")));
+        markup.setKeyboard(kb);
+        return markup;
     }
 
     // ============== 通用工具 ==============
