@@ -8,6 +8,7 @@
     <title>Nginx管理</title>
     <script>(function(){var t=localStorage.getItem('oci_theme')||'dark';if(t==='system')t=window.matchMedia('(prefers-color-scheme: light)').matches?'light':'dark';document.documentElement.dataset.theme=t;})();</script>
     <link rel="stylesheet" href="/css/all.min.css">
+    <link rel="stylesheet" href="/css/common/fa-fix.css">
     <link href="/css/sweetalert2.min.css" rel="stylesheet">
     <link href="/css/common/sweetalert-overrides.css" rel="stylesheet">
     <script src="/js/sweetalert2.min.js"></script>
@@ -542,14 +543,7 @@
         });
     }
     function createProxyConfig(config) {
-        Swal.fire({
-            title: window.I18N.nginx_modal_creating,
-            html: window.I18N.nginx_modal_creatingDesc,
-            allowOutsideClick: false,
-            didOpen: () => {
-                Swal.showLoading();
-            }
-        });
+        showLoading(window.I18N.nginx_modal_creating);
         fetch('/ssl/proxy/create', {
             method: 'POST',
             headers: {
@@ -560,6 +554,7 @@
         })
             .then(response => response.json())
             .then(data => {
+                hideLoading();
                 if (data.success) {
                     Swal.fire({
                         icon: 'success',
@@ -574,6 +569,7 @@
                 }
             })
             .catch(error => {
+                hideLoading();
                 Swal.fire({
                     icon: 'error',
                     title: window.I18N.nginx_toast_createFail,
@@ -609,13 +605,7 @@
             });
     }
     function updateProxyConfig(config) {
-        Swal.fire({
-            title: window.I18N.nginx_modal_updating,
-            allowOutsideClick: false,
-            didOpen: () => {
-                Swal.showLoading();
-            }
-        });
+        showLoading(window.I18N.nginx_modal_updating);
         fetch('/ssl/proxy/' + config.id, {
             method: 'PUT',
             headers: {
@@ -626,6 +616,7 @@
         })
             .then(response => response.json())
             .then(data => {
+                hideLoading();
                 if (data.success) {
                     Swal.fire({
                         icon: 'success',
@@ -639,6 +630,7 @@
                 }
             })
             .catch(error => {
+                hideLoading();
                 Swal.fire({
                     icon: 'error',
                     title: window.I18N.nginx_toast_updateFail,
@@ -1976,14 +1968,7 @@
         });
     }
     function startOpenResty() {
-        Swal.fire({
-            title: '正在启动OpenResty...',
-            html: '请稍候，正在启动服务',
-            allowOutsideClick: false,
-            didOpen: () => {
-                Swal.showLoading();
-            }
-        });
+        showLoading('正在启动OpenResty...');
         fetch('/ssl/openresty/start', {
             method: 'POST',
             headers: {
@@ -1992,6 +1977,7 @@
         })
             .then(response => response.json())
             .then(data => {
+                hideLoading();
                 if (data.success) {
                     Swal.fire({
                         icon: 'success',
@@ -2008,6 +1994,7 @@
                 }
             })
             .catch(error => {
+                hideLoading();
                 Swal.fire({
                     icon: 'error',
                     title: '启动失败',

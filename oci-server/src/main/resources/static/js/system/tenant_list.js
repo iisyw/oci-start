@@ -415,16 +415,7 @@ function handleDelete(tenantId) {
     }).then((result) => {
         if (result.isConfirmed) {
             // 显示加载状态
-            Swal.fire({
-                title: 'loading',
-                icon: 'info',
-                allowOutsideClick: false,
-                allowEscapeKey: false,
-                showConfirmButton: false,
-                didOpen: () => {
-                    Swal.showLoading();
-                }
-            });
+            showLoading('loading');
 
             // 如果用户点击了 "删除"，执行删除逻辑
             const xhr = new XMLHttpRequest();
@@ -438,6 +429,7 @@ function handleDelete(tenantId) {
             xhr.timeout = 30000;
 
             xhr.onload = function () {
+                hideLoading();
                 // 适配ResponseEntity的JSON响应
                 if (xhr.status >= 200 && xhr.status < 300) {
                     try {
@@ -469,11 +461,13 @@ function handleDelete(tenantId) {
             };
 
             xhr.onerror = function () {
+                hideLoading();
                 showError();
             };
 
             // 添加超时处理
             xhr.ontimeout = function () {
+                hideLoading();
                 showError();
             };
 
@@ -996,13 +990,7 @@ function createUser() {
     const tenantId = modal.dataset.tenantId;
 
     // Show loading state
-    Swal.fire({
-        title: 'loading',
-        allowOutsideClick: false,
-        didOpen: () => {
-            Swal.showLoading();
-        }
-    });
+    showLoading('loading');
 
     const xhr = new XMLHttpRequest();
     xhr.open('POST', '/tenants/oracle-users', true);
@@ -1011,6 +999,7 @@ function createUser() {
     xhr.setRequestHeader('X-CSRF-TOKEN', token);
 
     xhr.onload = function () {
+        hideLoading();
         if (xhr.status === 200) {
             const response = JSON.parse(xhr.responseText);
             hideAddUserForm();
@@ -1074,6 +1063,7 @@ function createUser() {
     };
 
     xhr.onerror = function() {
+        hideLoading();
         showError();
     };
 
@@ -1117,16 +1107,7 @@ function resetUserPassword(userId, userName) {
         cancelButtonText: i18n.common_cancel
     }).then((result) => {
         if (result.isConfirmed) {
-            Swal.fire({
-                title: 'loading',
-                icon: 'info',
-                allowOutsideClick: false,
-                allowEscapeKey: false,
-                showConfirmButton: false,
-                didOpen: () => {
-                    Swal.showLoading();
-                }
-            });
+            showLoading('loading');
 
             const xhr = new XMLHttpRequest();
             xhr.open('POST', '/tenants/oracle-users/resetPassword', true);
@@ -1138,6 +1119,7 @@ function resetUserPassword(userId, userName) {
             xhr.timeout = 30000;
 
             xhr.onload = function() {
+                hideLoading();
                 try {
                     const response = JSON.parse(xhr.responseText);
 
@@ -1225,10 +1207,12 @@ function resetUserPassword(userId, userName) {
             };
 
             xhr.onerror = function() {
+                hideLoading();
                 showError();
             };
 
             xhr.ontimeout = function() {
+                hideLoading();
                 showError();
             };
 
@@ -1297,16 +1281,7 @@ function deleteOciUser(userId) {
     }).then((result) => {
         if (result.isConfirmed) {
             // 显示处理中状态
-            Swal.fire({
-                title: 'loading',
-                icon: 'info',
-                allowOutsideClick: false,
-                allowEscapeKey: false,
-                showConfirmButton: false,
-                didOpen: () => {
-                    Swal.showLoading();
-                }
-            });
+            showLoading('loading');
 
             const xhr = new XMLHttpRequest();
             xhr.open('POST', '/tenants/oracle-users/deleteUser', true);
@@ -1319,6 +1294,7 @@ function deleteOciUser(userId) {
             xhr.timeout = 30000;
 
             xhr.onload = function() {
+                hideLoading();
                 if (xhr.status === 200) {
                     try {
                         const response = JSON.parse(xhr.responseText);
@@ -1347,10 +1323,12 @@ function deleteOciUser(userId) {
             };
 
             xhr.onerror = function() {
+                hideLoading();
                 showError();
             };
 
             xhr.ontimeout = function() {
+                hideLoading();
                 showError();
             };
 
@@ -2064,19 +2042,14 @@ function resetMfa() {
         cancelButtonText: i18n.common_cancel
     }).then((result) => {
         if (result.isConfirmed) {
-            Swal.fire({
-                title: 'loading',
-                allowOutsideClick: false,
-                didOpen: () => {
-                    Swal.showLoading();
-                }
-            });
+            showLoading('loading');
             const xhr = new XMLHttpRequest();
             xhr.open('POST', '/tenants/resetAccountFactor', true);
             xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
             const token = _getCsrfToken();
             xhr.setRequestHeader('X-CSRF-TOKEN', token);
             xhr.onload = function() {
+                hideLoading();
                 if (xhr.status === 200) {
                     try {
                         const response = JSON.parse(xhr.responseText);
@@ -2205,13 +2178,7 @@ function saveTrafficAlert() {
     if (saveBtn && saveBtn.dataset.loading === '1') {
         return;
     }
-    Swal.fire({
-        title: 'loading',
-        allowOutsideClick: false,
-        didOpen: () => {
-            Swal.showLoading();
-        }
-    });
+    showLoading('loading');
 
     const xhr = new XMLHttpRequest();
     xhr.open('POST', '/tenants/traffic-alert', true);
@@ -2219,6 +2186,7 @@ function saveTrafficAlert() {
     const token = _getCsrfToken();
     xhr.setRequestHeader('X-CSRF-TOKEN', token);
     xhr.onload = function() {
+        hideLoading();
         if (xhr.status === 200) {
             try {
                 const response = JSON.parse(xhr.responseText);
@@ -2392,20 +2360,14 @@ function saveCustomName() {
     const newName = nameInput.value.trim();
 
     console.log('保存租户ID:', currentEditingTenantId, '新名称:', newName);
-    Swal.fire({
-        title: 'loading',
-        allowOutsideClick: false,
-        didOpen: () => {
-            Swal.showLoading();
-        }
-    });
+    showLoading('loading');
     const xhr = new XMLHttpRequest();
     xhr.open('POST', '/tenants/updateCustomName', true);
     xhr.setRequestHeader('Content-Type', 'application/json');
-    const token = _getCsrfToken();
-    xhr.setRequestHeader('X-CSRF-TOKEN', token);
+    xhr.timeout = 30000;
 
     xhr.onload = function() {
+        hideLoading();
         if (xhr.status === 200) {
             try {
                 const response = JSON.parse(xhr.responseText);
@@ -2438,6 +2400,12 @@ function saveCustomName() {
         console.error('网络请求失败');
         showError();
     };
+
+    xhr.ontimeout = function() {
+        console.error('请求超时');
+        showError();
+    };
+
     const requestData = {
         tenantId: currentEditingTenantId,
         defName: newName
@@ -2566,8 +2534,10 @@ function closeTenantPasswordPolicyModal() {
 }
 function saveTenantPasswordPolicy() {
     const enablePasswordExpiry = document.getElementById('enableTenantPasswordExpiry').checked;
-    const expiryDays = parseInt(document.getElementById('tenantPasswordExpiryDays').value) || 120;
-    if (enablePasswordExpiry && (expiryDays < 1 || expiryDays > 365)) {
+    const expiryDaysInput = document.getElementById('tenantPasswordExpiryDays').value;
+    const parsedExpiryDays = parseInt(expiryDaysInput, 10);
+    const expiryDays = isNaN(parsedExpiryDays) ? 120 : parsedExpiryDays;
+    if (enablePasswordExpiry && (expiryDays < 0 || expiryDays > 365)) {
         Swal.fire({
             title: 'error',
             text: i18n.tenant_cds,
@@ -2576,13 +2546,7 @@ function saveTenantPasswordPolicy() {
         });
         return;
     }
-    Swal.fire({
-        title: 'loading',
-        allowOutsideClick: false,
-        didOpen: () => {
-            Swal.showLoading();
-        }
-    });
+    showLoading('loading');
 
     const modal = document.getElementById('userManagementModal');
     const tenantId = modal.dataset.tenantId;
@@ -2592,6 +2556,7 @@ function saveTenantPasswordPolicy() {
     const token = _getCsrfToken();
     xhr.setRequestHeader('X-CSRF-TOKEN', token);
     xhr.onload = function() {
+        hideLoading();
         if (xhr.status === 200) {
             try {
                 const response = JSON.parse(xhr.responseText);
@@ -2617,6 +2582,7 @@ function saveTenantPasswordPolicy() {
     };
 
     xhr.onerror = function() {
+        hideLoading();
         showError();
     };
 
@@ -2642,11 +2608,14 @@ function displayPasswordPolicyInfo(policyList) {
     const enabledPolicies = policyList.filter(function(policy) {
         return policy.enablePasswordExpiry;
     });
+    const policiesWithExpiryDays = policyList.filter(function(policy) {
+        return policy.expiryDays != null;
+    });
     const hasEnabledPolicy = enabledPolicies.length > 0;
     let minExpiryDays = 120;
-    if (hasEnabledPolicy) {
-        const expiryDaysList = enabledPolicies.map(function(p) {
-            return p.expiryDays || 120;
+    if (policiesWithExpiryDays.length > 0) {
+        const expiryDaysList = policiesWithExpiryDays.map(function(p) {
+            return p.expiryDays == null ? 120 : p.expiryDays;
         });
         minExpiryDays = Math.min.apply(Math, expiryDaysList);
     }
@@ -2939,13 +2908,7 @@ function getCurrentNotificationRecipients(tenantId, callback) {
 }
 
 function updateNotificationRecipientsList(tenantId, emails, callback) {
-    Swal.fire({
-        title: 'loading',
-        allowOutsideClick: false,
-        didOpen: () => {
-            Swal.showLoading();
-        }
-    });
+    showLoading('loading');
 
     const xhr = new XMLHttpRequest();
     xhr.open('POST', '/tenants/notification/update', true);
@@ -2958,21 +2921,25 @@ function updateNotificationRecipientsList(tenantId, emails, callback) {
             try {
                 const response = JSON.parse(xhr.responseText);
                 if (response.success) {
-                    Swal.close();
+                    hideLoading();
                     callback();
                 } else {
+                    hideLoading();
                     console.log('更新失败:', response.message);
                     showError();
                 }
             } catch (error) {
+                hideLoading();
                 showError();
             }
         } else {
+            hideLoading();
             showError();
         }
     };
 
     xhr.onerror = function() {
+        hideLoading();
         showError();
     };
 
@@ -3019,13 +2986,7 @@ function disableEmailMFA() {
 }
 
 function performMfaOperation(tenantId, enableEmail) {
-    Swal.fire({
-        title: 'loading',
-        allowOutsideClick: false,
-        didOpen: () => {
-            Swal.showLoading();
-        }
-    });
+    showLoading('loading');
 
     const xhr = new XMLHttpRequest();
     xhr.open('POST', '/tenants/mfa/email', true);
@@ -3035,6 +2996,7 @@ function performMfaOperation(tenantId, enableEmail) {
     xhr.setRequestHeader('X-CSRF-TOKEN', token);
 
     xhr.onload = function() {
+        hideLoading();
         if (xhr.status === 200) {
             try {
                 const response = JSON.parse(xhr.responseText);
@@ -3060,6 +3022,7 @@ function performMfaOperation(tenantId, enableEmail) {
     };
 
     xhr.onerror = function() {
+        hideLoading();
         showError();
     };
 
@@ -3378,16 +3341,7 @@ function confirmEnableEmailService() {
 
 
 function executeEnableEmailService(tenantId, emailDomain) {
-    Swal.fire({
-        title: 'loading',
-        icon: 'info',
-        allowOutsideClick: false,
-        allowEscapeKey: false,
-        showConfirmButton: false,
-        didOpen: () => {
-            Swal.showLoading();
-        }
-    });
+    showLoading('loading');
 
     const xhr = new XMLHttpRequest();
     xhr.open('POST', '/tenants/email/enable', true);
@@ -3398,6 +3352,7 @@ function executeEnableEmailService(tenantId, emailDomain) {
     xhr.timeout = 60000;
 
     xhr.onload = function() {
+        hideLoading();
         if (xhr.status === 200) {
             try {
                 const response = JSON.parse(xhr.responseText);
@@ -3428,10 +3383,12 @@ function executeEnableEmailService(tenantId, emailDomain) {
     };
 
     xhr.onerror = function() {
+        hideLoading();
         showError('Network connection error');
     };
 
     xhr.ontimeout = function() {
+        hideLoading();
         showError('Request timed out');
     };
     xhr.send(JSON.stringify({
@@ -3956,11 +3913,7 @@ function saveSocialConfig() {
         clientId: clientId,
         clientSecret: clientSecret
     };
-    Swal.fire({
-        title: 'loading',
-        allowOutsideClick: false,
-        didOpen: () => Swal.showLoading()
-    });
+    showLoading('loading');
 
     const xhr = new XMLHttpRequest();
     xhr.open('POST', url, true);
@@ -3973,6 +3926,7 @@ function saveSocialConfig() {
             try {
                 const res = JSON.parse(xhr.responseText);
                 if (res.success) {
+                    hideLoading();
                     Swal.fire({
                         icon: 'success',
                         title: 'successful',
@@ -3984,17 +3938,21 @@ function saveSocialConfig() {
                         loadSocialList();
                     });
                 } else {
+                    hideLoading();
                     Swal.fire('error', res.message, 'error');
                 }
             } catch (e) {
+                hideLoading();
                 showError();
             }
         } else {
+            hideLoading();
             showError();
         }
     };
 
     xhr.onerror = function() {
+        hideLoading();
         showError();
     };
 
@@ -4012,11 +3970,7 @@ function disableSocialConfig(item) {
         cancelButtonText: i18n.common_cancel
     }).then((result) => {
         if (result.isConfirmed) {
-            Swal.fire({
-                title: 'loading',
-                allowOutsideClick: false,
-                didOpen: () => Swal.showLoading()
-            });
+            showLoading('loading');
             const requestData = {
                 id: item.id,
                 tenantId: currentSocialTenantId,
@@ -4035,6 +3989,7 @@ function disableSocialConfig(item) {
                     try {
                         const res = JSON.parse(xhr.responseText);
                         if (res.success) {
+                            hideLoading();
                             Swal.fire({
                                 icon: 'success',
                                 title: 'successful',
@@ -4044,16 +3999,20 @@ function disableSocialConfig(item) {
                                 loadSocialList();
                             });
                         } else {
+                            hideLoading();
                             showError();
                         }
                     } catch (e) {
+                        hideLoading();
                         showError();
                     }
                 } else {
+                    hideLoading();
                     showError();
                 }
             };
             xhr.onerror = function() {
+                hideLoading();
                 Swal.fire('Error', '无法连接到服务器，请检查网络。', 'error');
             };
             xhr.send(JSON.stringify(requestData));
@@ -4070,7 +4029,7 @@ function enableSocialConfig(item) {
         cancelButtonText: i18n.common_cancel
     }).then((result) => {
         if (result.isConfirmed) {
-            Swal.fire({ title: 'loading', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+            showLoading('loading');
 
             const xhr = new XMLHttpRequest();
             xhr.open('POST', '/social/enable', true);
@@ -4080,6 +4039,7 @@ function enableSocialConfig(item) {
             xhr.setRequestHeader('Content-Type', 'application/json');
 
             xhr.onload = function() {
+                hideLoading();
                 if (xhr.status === 200) {
                     const res = JSON.parse(xhr.responseText);
                     if (res.success) {
@@ -4125,13 +4085,7 @@ function editAccountCost(tenantId, currentCost) {
 }
 
 function saveAccountCost(tenantId, newCost) {
-    Swal.fire({
-        title: 'loading',
-        allowOutsideClick: false,
-        didOpen: () => {
-            Swal.showLoading();
-        }
-    });
+    showLoading('loading');
 
     const xhr = new XMLHttpRequest();
     xhr.open('POST', '/tenants/updateAccountCost', true);
@@ -4144,6 +4098,7 @@ function saveAccountCost(tenantId, newCost) {
             try {
                 const response = JSON.parse(xhr.responseText);
                 if (response.success) {
+                    hideLoading();
                     const costElement = document.getElementById('cost-' + tenantId);
                     if (costElement) {
                         costElement.textContent = newCost || '';
@@ -4156,17 +4111,23 @@ function saveAccountCost(tenantId, newCost) {
                         showConfirmButton: false
                     });
                 } else {
+                    hideLoading();
                     showError();
                 }
             } catch (error) {
+                hideLoading();
                 showError();
             }
         } else {
+            hideLoading();
             showError();
         }
     };
 
-    xhr.onerror = showError;
+    xhr.onerror = function() {
+        hideLoading();
+        showError();
+    };
     xhr.send(JSON.stringify({
         tenantId: tenantId,
         accountCost: newCost

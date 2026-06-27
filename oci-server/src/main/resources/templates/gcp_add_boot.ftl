@@ -8,6 +8,7 @@
     <meta name="_csrf_header" content="X-CSRF-TOKEN">
     <script>(function(){var t=localStorage.getItem('oci_theme')||'dark';if(t==='system')t=window.matchMedia('(prefers-color-scheme: light)').matches?'light':'dark';document.documentElement.dataset.theme=t;})();</script>
     <link rel="stylesheet" href="/css/all.min.css">
+    <link rel="stylesheet" href="/css/common/fa-fix.css">
     <link href="/css/sweetalert2.min.css" rel="stylesheet">
     <link href="/css/common/sweetalert-overrides.css" rel="stylesheet">
     <link rel="stylesheet" href="/css/app/gcp_add_boot.css">
@@ -778,16 +779,7 @@
                     submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 创建中...';
 
                     // 显示创建中的提示
-                    Swal.fire({
-                        title: '正在创建实例...',
-                        text: '请稍候，正在为您创建GCP实例',
-                        icon: 'info',
-                        allowOutsideClick: false,
-                        showConfirmButton: false,
-                        didOpen: () => {
-                            Swal.showLoading();
-                        }
-                    });
+                    showLoading('正在创建实例...');
 
                     // 提交表单
                     form.submit();

@@ -8,6 +8,7 @@
     <title>VPS管理系统 - 租户管理</title>
     <script>(function(){var t=localStorage.getItem('oci_theme')||'dark';if(t==='system')t=window.matchMedia('(prefers-color-scheme: light)').matches?'light':'dark';document.documentElement.dataset.theme=t;})();</script>
     <link rel="stylesheet" href="/css/all.min.css">
+    <link rel="stylesheet" href="/css/common/fa-fix.css">
     <link href="/css/sweetalert2.min.css" rel="stylesheet">
     <link href="/css/common/sweetalert-overrides.css" rel="stylesheet">
     <script src="/js/sweetalert2.min.js"></script>
@@ -771,7 +772,7 @@
 
             <div id="tenantExpiryDaysSection" class="form-group" style="display: none;">
                 <label for="tenantPasswordExpiryDays">${msg.get("tenant.passExoDay")}</label>
-                <input type="number" id="tenantPasswordExpiryDays" min="1" max="365" value="120"
+                <input type="number" id="tenantPasswordExpiryDays" min="0" max="365" value="120"
                        class="form-control" style="width: 100%; padding: 8px; border: 1px solid var(--card-border); border-radius: 4px;">
                 <small style="color: var(--text-secondary); display: block; margin-top: 5px;">
                     ${msg.get("tenant.passExoDayDefault")}
@@ -788,6 +789,7 @@
                     <li>${msg.get("tenant.passDes2")}</li>
                     <li>${msg.get("tenant.passDes3")}</li>
                     <li>${msg.get("tenant.passDes4")}</li>
+                    <li>${msg.get("tenant.passDes5")}</li>
                 </ul>
             </div>
 
@@ -1532,6 +1534,6 @@
 <script src="/js/common/request.js"></script>
 <script src="/js/common/loading.js"></script>
 <script src="/js/common/custom-select.js"></script>
-<script src="/js/system/tenant_list.js"></script>
+<script src="/js/system/tenant_list.js?v=${.now?string('yyyyMMddHHmm')}"></script>
 </body>
 </html>

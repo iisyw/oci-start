@@ -13,6 +13,7 @@
         (function(){var t=localStorage.getItem('oci_theme');if(t)document.documentElement.dataset.theme=t;})();
     </script>
     <link rel="stylesheet" href="/css/all.min.css">
+    <link rel="stylesheet" href="/css/common/fa-fix.css">
     <link rel="stylesheet" href="/css/app/oci_network_manage.css">
     <link rel="stylesheet" href="/css/common/loading.css">
 
@@ -998,13 +999,7 @@
             });
     }
     function refreshVnicInfo() {
-        Swal.fire({
-            title: 'loading',
-            allowOutsideClick: false,
-            didOpen: () => {
-                Swal.showLoading();
-            }
-        });
+        showLoading('loading');
         fetch(`/oci/vnic/refresh?instanceId=`+instanceId, {
             method: 'GET',
             headers: {
@@ -1013,7 +1008,7 @@
         })
             .then(response => response.json())
             .then(data => {
-                Swal.close();
+                hideLoading();
                 if (data.success) {
                     window.location.reload();
                 } else {
@@ -1025,7 +1020,7 @@
                 }
             })
             .catch(error => {
-                Swal.close();
+                hideLoading();
                 console.error('刷新VNIC信息失败:', error);
                 Swal.fire({
                     icon: 'error',
@@ -1126,13 +1121,7 @@
     }
 
     function loadPageData() {
-        Swal.fire({
-            title: 'loading',
-            allowOutsideClick: false,
-            didOpen: () => {
-                Swal.showLoading();
-            }
-        });
+        showLoading('loading');
         fetch(`/oci/vnic/loadData?instanceId=`+instanceId, {
             method: 'GET',
             headers: {
@@ -1141,7 +1130,7 @@
         })
             .then(response => response.json())
             .then(data => {
-                Swal.close();
+                hideLoading();
                 if (data.success) {
                     updatePageWithData(data.data);
                 } else {
@@ -1149,7 +1138,7 @@
                 }
             })
             .catch(error => {
-                Swal.close();
+                hideLoading();
                 console.error('加载数据失败:', error);
             });
     }
@@ -1402,13 +1391,7 @@
     }
 
     function deleteIpv6Address(ipv6Address, vnicId) {
-        Swal.fire({
-            title: 'loading',
-            allowOutsideClick: false,
-            didOpen: function() {
-                Swal.showLoading();
-            }
-        });
+        showLoading('loading');
 
         fetch('/oci/vnic/deleteIpv6', {
             method: 'POST',
@@ -1426,7 +1409,7 @@
                 return response.json();
             })
             .then(function(data) {
-                Swal.close();
+                hideLoading();
                 if (data.success) {
                     Swal.fire({
                         icon: 'success',
@@ -1445,7 +1428,7 @@
                 }
             })
             .catch(function(error) {
-                Swal.close();
+                hideLoading();
                 console.error('删除IPv6地址失败:', error);
             });
     }

@@ -7,10 +7,12 @@
     <input type="hidden" id="tenantIdParam" value="${tenantId!''}">
     <meta name="_csrf" content="">
     <meta name="_csrf_header" content="X-CSRF-TOKEN">
+    <input type="hidden" id="csrf_token" name="_csrf" value="">
     <script>
         (function(){var t=localStorage.getItem('oci_theme');if(t)document.documentElement.dataset.theme=t;})();
     </script>
     <link rel="stylesheet" href="/css/all.min.css">
+    <link rel="stylesheet" href="/css/common/fa-fix.css">
     <link href="/css/sweetalert2.min.css" rel="stylesheet">
     <link href="/css/common/sweetalert-overrides.css" rel="stylesheet">
     <script src="/js/sweetalert2.min.js"></script>

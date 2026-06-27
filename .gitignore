@@ -1,0 +1,17 @@
+# Maven build output
+target/
+
+# IDE
+.idea/
+*.iml
+.DS_Store
+
+# Runtime data
+data/
+logs/
+
+# Private keys
+*.pem
+*.key
+*.p12
+*.jks
